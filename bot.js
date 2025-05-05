@@ -2,28 +2,6 @@ require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 
-// Verificar variables de entorno al inicio
-if (!process.env.TELEGRAM_TOKEN) {
-  console.error('❌ TELEGRAM_TOKEN no está configurado.');
-  process.exit(1);
-}
-if (!process.env.GOOGLE_PROJECT_ID) {
-  console.error('❌ GOOGLE_PROJECT_ID no está configurado.');
-  process.exit(1);
-}
-if (!process.env.GOOGLE_PRIVATE_KEY) {
-  console.error('❌ GOOGLE_PRIVATE_KEY no está configurado.');
-  process.exit(1);
-}
-if (!process.env.GOOGLE_CLIENT_EMAIL) {
-  console.error('❌ GOOGLE_CLIENT_EMAIL no está configurado.');
-  process.exit(1);
-}
-if (!process.env.GOOGLE_SHEET_ID) {
-  console.error('❌ GOOGLE_SHEET_ID no está configurado.');
-  process.exit(1);
-}
-
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
 // Configuración de Google Sheets
@@ -34,20 +12,19 @@ const creds = {
   client_email: process.env.GOOGLE_CLIENT_EMAIL
 };
 
-// Función para cargar la hoja de Google Sheets
 async function loadSheet() {
   try {
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth(creds);
     await doc.loadInfo();
+    console.log(`✅ Google Sheet cargada: ${doc.title}`);
     return doc.sheetsByIndex[0]; // Usar la primera hoja
   } catch (error) {
-    console.error('❌ Error al cargar Google Sheets:', error);
+    console.error('❌ Error al cargar Google Sheets:', error.message, error.stack);
     throw new Error('No se pudo conectar con Google Sheets.');
   }
 }
 
-// Comando /start
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     msg.chat.id,
@@ -55,7 +32,6 @@ bot.onText(/\/start/, (msg) => {
   );
 });
 
-// Manejo de mensajes
 bot.on('message', async (msg) => {
   if (msg.text.startsWith('/')) return; // Ignorar comandos
 
@@ -63,6 +39,7 @@ bot.on('message', async (msg) => {
     const sheet = await loadSheet();
     const rows = await sheet.getRows();
 
+    console.log(`🔍 Buscando: ${msg.text}`);
     const query = msg.text.trim().toLowerCase();
     const result = rows.find(row =>
       (row['Número de kit'] || '').toLowerCase() === query ||
@@ -89,7 +66,7 @@ bot.on('message', async (msg) => {
       bot.sendMessage(msg.chat.id, '❌ No encontrado. Verifica tu número de kit, serie o nombre.');
     }
   } catch (error) {
-    console.error('⚠️ Error procesando la solicitud:', error);
+    console.error('⚠️ Error procesando la solicitud:', error.message, error.stack);
     bot.sendMessage(msg.chat.id, '⚠️ Error al procesar tu solicitud. Intenta más tarde.');
   }
 });
